@@ -1,0 +1,13 @@
+{
+    "prompt": "Premise: {premise}. Hypothesis: {hypothesis}\nEntailment, neutral or contradiction? Answer:",
+    "prompt_label_separator": " ",
+    "features": [
+        "premise",
+        "hypothesis"
+    ],
+    "labels": {
+        "0": "Entailment",
+        "1": "Neutral",
+        "2": "Contradiction"
+    }
+}
