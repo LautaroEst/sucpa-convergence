@@ -7,6 +7,8 @@ This is the code to analyze the convergence of the SUCPA algorithm.
 Check that you have the packages listed in `requirements.txt` installed. If not, run:
 
 ```bash
+conda create --name sucpa python=3.10
+conda activate sucpa
 pip install -r requirements.txt
 ```
 

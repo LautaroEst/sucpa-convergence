@@ -30,7 +30,7 @@ def main():
         for i, seed in enumerate(seeds,1):
             print(f"{i}/{len(seeds)}", end=" ")
             generator = torch.Generator().manual_seed(int(seed))
-            beta_init = torch.randn(dataset2numclasses[args.dataset], generator=generator)
+            beta_init = torch.randn(dataset2numclasses[args.dataset], generator=generator) * 4.
             run(args, beta_init)
     
     elif args.beta_init is not None and args.repetitions is None and args.random_state is None:
@@ -65,8 +65,8 @@ def run(args, beta_init):
 
         # Save results
         os.makedirs(results_dir, exist_ok=True)
-        np.save(f'{results_dir}/beta_history.npy', model.beta_history)
-        np.save(f'{results_dir}/jacobian_history.npy', model.jacobian_history)
+        np.save(f'{results_dir}/beta_history.npy', model.beta_history.numpy())
+        np.save(f'{results_dir}/jacobian_history.npy', model.jacobian_history.numpy())
 
     else:
         print(f"Found existing results for dataset={args.dataset}, steps={args.steps}, beta[0]={beta_init_list}. Skipping...")
