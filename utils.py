@@ -2,15 +2,35 @@
 
 import torch
 from torch import nn
+import numpy as np
+
+dataset2numclasses = {
+    "sst2": 2,
+    "mnli": 3
+}
+
+def load_data(dataset):
+    rs = np.random.RandomState(92893)
+    logits = np.load(f'data/{dataset}/train_logits.npy')
+    labels = np.load(f'data/{dataset}/train_labels.npy')
+    idx = rs.choice(logits.shape[0], size=1000, replace=False)
+    logits = torch.from_numpy(logits[idx])
+    labels = torch.from_numpy(labels[idx])
+    return logits, labels
 
 
 class SUCPA(nn.Module):
     
-    def __init__(self, num_classes, steps=10):
+    def __init__(self, num_classes, steps=10, beta_init=None):
         super().__init__()
         self.num_classes = num_classes
         self.steps = steps
-        self.beta = nn.Parameter(torch.zeros(num_classes), requires_grad=False)
+        if beta_init is not None:
+            if beta_init.shape != (num_classes,):
+                raise ValueError(f"beta_init must be of shape ({num_classes},), but got {beta_init.shape}")
+            self.beta = nn.Parameter(beta_init, requires_grad=False)
+        else:
+            self.beta = nn.Parameter(torch.zeros(num_classes), requires_grad=False)
         self.jacobian = torch.zeros(num_classes, num_classes)
         self.beta_history = None
         self.jacobian_history = None
@@ -36,3 +56,5 @@ class SUCPA(nn.Module):
     
     def calibrate(self, logits):
         return logits + self.beta
+
+
