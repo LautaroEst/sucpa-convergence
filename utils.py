@@ -6,7 +6,8 @@ import numpy as np
 
 dataset2numclasses = {
     "sst2": 2,
-    "mnli": 3
+    "mnli": 3,
+    "dogs-vs-cats": 2,
 }
 
 def load_data(dataset):

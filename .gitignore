@@ -1,3 +1,6 @@
 .vscode/
 __pycache__/
+.ipynb_checkpoints/
 results/
+data/dogs-vs-cats/test1/
+data/dogs-vs-cats/train/
