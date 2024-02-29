@@ -19,6 +19,32 @@ def load_data(dataset):
     labels = torch.from_numpy(labels[idx])
     return logits, labels
 
+def compute_metric(logits, labels, metric, bootstrap=True, n_boots=100, random_state=0):
+    
+    def _compute_metric(logits, labels, metric):
+        n = logits.shape[0]
+        if metric == "cross_entropy":
+            logits = torch.log_softmax(logits, dim=1)
+            return -torch.mean(logits[torch.arange(n), labels])
+        elif metric == "norm_cross_entropy":
+            logits = torch.log_softmax(logits, dim=1)
+            log_priors = torch.log(torch.bincount(labels, minlength=logits.shape[1]).float() / n)
+            return torch.mean(logits[torch.arange(n), labels]) / torch.mean(log_priors[labels])
+        elif metric == "accuracy":
+            return (logits.argmax(dim=1) == labels).float().mean()
+        else:
+            raise ValueError(f"Metric {metric} not supported.")
+        
+    if bootstrap:
+        rs = np.random.RandomState(random_state)
+        n = logits.shape[0]
+        metrics = []
+        for _ in range(n_boots):
+            idx = rs.choice(n, size=n, replace=True)
+            metrics.append(_compute_metric(logits[idx], labels[idx], metric).item())
+        return metrics
+    
+    return [_compute_metric(logits, labels, metric).item()]
 
 class SUCPA(nn.Module):
     
@@ -57,5 +83,23 @@ class SUCPA(nn.Module):
     
     def calibrate(self, logits):
         return logits + self.beta
+    
+    def save_to_disk(self, results_dir):
+        state_dict = self.state_dict()
+        state_dict["num_classes"] = torch.tensor(self.num_classes)
+        state_dict["steps"] = torch.tensor(self.steps)
+        state_dict["beta_history"] = self.beta_history
+        state_dict["jacobian_history"] = self.jacobian_history
+        torch.save(state_dict, f'{results_dir}/model.pt')
+
+    @classmethod
+    def load_from_disk(cls, results_dir):
+        state_dict = torch.load(f'{results_dir}/model.pt')
+        model = cls(num_classes=state_dict["num_classes"].item(), steps=state_dict["steps"].item())
+        model.load_state_dict(state_dict, strict=False)
+        model.beta_history = state_dict["beta_history"]
+        model.jacobian_history = state_dict["jacobian_history"]
+        return model
+
 
 

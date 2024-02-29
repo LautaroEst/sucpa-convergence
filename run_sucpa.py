@@ -65,6 +65,7 @@ def run(args, beta_init):
 
         # Save results
         os.makedirs(results_dir, exist_ok=True)
+        model.save_to_disk(results_dir)
         np.save(f'{results_dir}/beta_history.npy', model.beta_history.numpy())
         np.save(f'{results_dir}/jacobian_history.npy', model.jacobian_history.numpy())
 
