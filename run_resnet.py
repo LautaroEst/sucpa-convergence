@@ -14,13 +14,14 @@ torch.manual_seed(3748)
 
 
 IMGS_PATH = 'data/dogs-vs-cats/train'
+test_idx = 'data/dogs-vs-cats/test_list.txt'
 
 hyperparameters = {
     'batch_size': 64,
     'learning_rate': 1e-4,
-    'epochs': 1,
+    'epochs': 4,
     'print_every': 10,
-    'eval_every': 50,
+    'eval_every': 20,
 }
 
 
@@ -44,21 +45,27 @@ class DogsVsCatsDataset(Dataset):
         return image, label
 
 
-def get_data_loaders(batch_size=32, test_size=0.2):
+def get_data_loaders(batch_size=32, val_size=0.2):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
     ])
     all_images = os.listdir(IMGS_PATH)
+    test_images = np.array([all_images[idx] for idx in np.loadtxt(test_idx, dtype=int)])
+    all_images = np.array([img for img in all_images if img not in test_images])
     np.random.shuffle(all_images)
-    split_idx = int(len(all_images) * test_size)
+    all_images = all_images
+    
+    split_idx = int(len(all_images) * val_size)
     train_images = all_images[split_idx:]
-    test_images = all_images[:split_idx]
+    val_images = all_images[:split_idx]
     train_dataset = DogsVsCatsDataset(train_images, transform=transform)
+    val_dataset = DogsVsCatsDataset(val_images, transform=transform)
     test_dataset = DogsVsCatsDataset(test_images, transform=transform)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-    return train_loader, test_loader
+    return train_loader, val_loader, test_loader
 
 
 def get_model():
@@ -75,6 +82,7 @@ def train(model, loader, test_loader):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model.train()
+    best_loss = float("inf")
     for epoch in range(hyperparameters["epochs"]):
         for i, (images, labels) in enumerate(loader):
             images = images.to(device)
@@ -91,7 +99,10 @@ def train(model, loader, test_loader):
                 accuracy = 100 * correct / total
                 print(f'Epoch: {epoch}, Batch: {i}, Train Loss: {loss.item():.4f}, Train Accuracy: {accuracy:.2f}')
             if (i + 1) % hyperparameters["eval_every"] == 0:
-                eval(model, test_loader, criterion, device)
+                eval_loss = eval(model, test_loader, criterion, device)
+                if eval_loss < best_loss:
+                    torch.save(model.state_dict(), "models/model.pt")
+                torch.save(model.state_dict(), "models/last_model.pt")
                 model.train()
     return model, device
 
@@ -111,7 +122,8 @@ def eval(model, loader, criterion=nn.CrossEntropyLoss(), device=None):
             loss += criterion(outputs, labels) * images.size(0)
     loss /= len(loader.dataset)
     accuracy = 100 * correct / total
-    print(f'Test Loss: {loss.item():.4f}, Test Accuracy: {accuracy:.2f}')
+    print(f'Validation Loss: {loss.item():.4f}, Validation Accuracy: {accuracy:.2f}')
+    return loss
 
 
 def get_logits(model, device, loader):
@@ -119,7 +131,7 @@ def get_logits(model, device, loader):
     all_logits = []
     all_labels = []
     with torch.no_grad():
-        for images, labels in loader:
+        for images, labels in tqdm(loader, leave=False, desc='Getting logits'):
             images = images.to(device)
             outputs = model(images)
             all_logits.append(outputs)
@@ -131,22 +143,25 @@ def get_logits(model, device, loader):
 
 def main():
     model = get_model()
-    train_loader, test_loader = get_data_loaders(batch_size=hyperparameters["batch_size"], test_size=0.2)
-    model, device = train(model, train_loader, test_loader)
+    train_loader, val_loader, test_loader = get_data_loaders(batch_size=hyperparameters["batch_size"], val_size=0.2)
+    model, device = train(model, train_loader, val_loader)
 
-    logits_path = "/".join(IMGS_PATH.split('/')[:-1])
-    logits, labels = get_logits(model, device, train_loader)
-    np.save(os.path.join(logits_path,'train_logits.npy'), logits)
-    np.save(os.path.join(logits_path,'train_labels.npy'), labels)
-    
-    logits, labels = get_logits(model, device, test_loader)
-    np.save(os.path.join(logits_path,'test_logits.npy'), logits)
-    np.save(os.path.join(logits_path,'test_labels.npy'), labels)
+    os.makedirs("models", exist_ok=True)
+    for prefix in ["", "last_"]:
 
-    
+        model.load_state_dict(torch.load(f"models/{prefix}model.pt"))
+        logits_path = "/".join(IMGS_PATH.split('/')[:-1])
+        logits, labels = get_logits(model, device, train_loader)
+        np.save(os.path.join(logits_path,f'{prefix}train_logits.npy'), logits)
+        np.save(os.path.join(logits_path,f'{prefix}train_labels.npy'), labels)
+        
+        logits, labels = get_logits(model, device, val_loader)
+        np.save(os.path.join(logits_path,f'{prefix}val_logits.npy'), logits)
+        np.save(os.path.join(logits_path,f'{prefix}val_labels.npy'), labels)
 
-
-
+        logits, labels = get_logits(model, device, test_loader)
+        np.save(os.path.join(logits_path,f'{prefix}test_logits.npy'), logits)
+        np.save(os.path.join(logits_path,f'{prefix}test_labels.npy'), labels)
 
 
 
