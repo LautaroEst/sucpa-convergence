@@ -56,7 +56,7 @@ def run(args, beta_init):
         print(f'Running experiment for dataset={args.dataset}, steps={args.steps}, beta[0]={beta_init_list}...')
 
         # Load logits and labels
-        logits, labels = load_data(args.dataset)
+        logits, labels = load_data(args.dataset, split='test', prefix="")
         class_counts = torch.bincount(labels, minlength=num_classes)
 
         # Create and run SUCPA model

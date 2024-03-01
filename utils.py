@@ -10,13 +10,17 @@ dataset2numclasses = {
     "dogs-vs-cats": 2,
 }
 
-def load_data(dataset):
+def load_data(dataset, prefix="", split="train"):
     rs = np.random.RandomState(92893)
-    logits = np.load(f'data/{dataset}/train_logits.npy')
-    labels = np.load(f'data/{dataset}/train_labels.npy')
-    idx = rs.choice(logits.shape[0], size=1000, replace=False)
-    logits = torch.from_numpy(logits[idx])
-    labels = torch.from_numpy(labels[idx])
+    logits = np.load(f'data/{dataset}/{prefix}{split}_logits.npy')
+    labels = np.load(f'data/{dataset}/{prefix}{split}_labels.npy')
+    if split == "train":
+        idx = rs.choice(logits.shape[0], size=1000, replace=False)
+        logits = torch.from_numpy(logits[idx])
+        labels = torch.from_numpy(labels[idx])
+    else:
+        logits = torch.from_numpy(logits)
+        labels = torch.from_numpy(labels)
     return logits, labels
 
 def compute_metric(logits, labels, metric, bootstrap=True, n_boots=100, random_state=0):

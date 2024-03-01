@@ -102,6 +102,7 @@ def train(model, loader, test_loader):
                 eval_loss = eval(model, test_loader, criterion, device)
                 if eval_loss < best_loss:
                     torch.save(model.state_dict(), "models/model.pt")
+                    best_loss = eval_loss
                 torch.save(model.state_dict(), "models/last_model.pt")
                 model.train()
     return model, device
@@ -142,14 +143,16 @@ def get_logits(model, device, loader):
 
 
 def main():
+    os.makedirs("models", exist_ok=True)
+
     model = get_model()
     train_loader, val_loader, test_loader = get_data_loaders(batch_size=hyperparameters["batch_size"], val_size=0.2)
     model, device = train(model, train_loader, val_loader)
 
-    os.makedirs("models", exist_ok=True)
     for prefix in ["", "last_"]:
 
         model.load_state_dict(torch.load(f"models/{prefix}model.pt"))
+        model = model.to(device)
         logits_path = "/".join(IMGS_PATH.split('/')[:-1])
         logits, labels = get_logits(model, device, train_loader)
         np.save(os.path.join(logits_path,f'{prefix}train_logits.npy'), logits)
